@@ -1,20 +1,41 @@
-import {useEffect, useRef} from 'react'
-import MonacoEditor from 'react-monaco-editor';
+import { useEffect, useRef } from 'react'
+import MonacoEditor, { monaco } from 'react-monaco-editor';
 import * as _monaco from 'monaco-editor';
 
 let provider = {
-  dispose: () => {},
+  dispose: () => { },
 };
 
 function App() {
- // 编辑器实例
- const editorInstance = useRef();
- const monacoInstance = useRef();
-    const options = {
-      selectOnLineNumbers: true,
-      renderSideBySide: false,
-    };
+  const options = {
+    selectOnLineNumbers: true,
+    renderSideBySide: false,
+    autoClosingBrackets: "never",
+    lineNumbers: null,
+  };
 
+  let myField = 'my-field';
+  let myKeyword = 'my-keyword';
+  let myFunction = 'my-function';
+
+  //设置含有custom-error等token class的主题
+  monaco.editor.defineTheme('logTheme', {
+    base: 'vs',
+    inherit: false,
+    rules: [{
+      token: myField,
+      foreground: "00b375",
+      fontStyle: "bold"
+    }, {
+      token: myKeyword,
+      foreground: "2153D4",
+      fontStyle: "bold"
+    }, {
+      token: myFunction,
+      foreground: "2153D4",
+      fontStyle: "bold"
+    }],
+  });
 
   useEffect(
     () => () => {
@@ -24,58 +45,75 @@ function App() {
   );
 
   const editorDidMountHandle = (editor, monaco) => {
-    monacoInstance.current = monaco;
-    editorInstance.current = editor;
-    // 提示项设值
-    provider = monaco.languages.registerCompletionItemProvider('plaintext', {
-      provideCompletionItems() {
-        const suggestions = [];
-        [
-          'CASEWHEN(expression1, value1, expression2, value2, ..., else_value)',
-          'CONCAT(str1, str2, ...)',
-          'ISNULL (expression, defaultValue)',
-          'DATEDIFF_YEAR(startdate,enddate)',
-          'DATEDIFF_MONTH(startdate,enddate)',
-          'DATEDIFF_DAY(startdate,enddate)',
-          'SUM(expression)',
-          'AVG(expression)',
-          'MAX(expression)',
-          'MIN(expression)',
-          'COUNT(expression)',
-          'DISTINCTCOUNT(expression)',
-          'DISTINCTAVG(expression)',
-          'DISTINCTSUM(expression)',
-          'NOW()',
-        ].forEach((item) => {
-          suggestions.push(
-            // 添加contact()函数
-            {
-              label: item, // 显示名称
-              kind: monaco.languages.CompletionItemKind.Function, // 这里Function也可以是别的值，主要用来显示不同的图标
-              insertText: item, // 实际粘贴上的值
-              detail: item
-            }
-          );
-        });
-        return {
-          suggestions, // 必须使用深拷贝
-        };
+    // monaco.languages.register({ id: 'log' });
+
+
+
+
+    monaco.languages.setMonarchTokensProvider('plaintext', {
+      tokenizer: {
+        root: [{
+          include: "@fields"
+        }, {
+          include: "@functions"
+        }, {
+          regex: /[{}()]/,
+          action: {
+            token: myKeyword
+          }
+        }, {
+          regex: /\b(CASE|WHEN|THEN|ELSE|END)\b/,
+          action: {
+            token: myKeyword
+          }
+        }, {
+          regex: /\b(DISTINCT)\b/,
+          action: {
+            token: myKeyword
+          }
+        }, {
+          regex: /(\+|-|\*|\/)/,
+          action: {
+            token: myKeyword
+          }
+        }],
+
+        fields: [{
+          regex: "\\[(".concat(['id', 'name'].join("|"), ")\\]"),
+          action: {
+            token: myField,
+            next: "@popall"
+          }
+        }],
+
+        functions: [{
+          regex: "(".concat(['ABS', 'CEIL'].join("|"), ")\\("),
+          action: {
+            token: myFunction,
+            next: "@popall"
+          }
+        }]
       },
-      quickSuggestions: false, // 默认提示关闭
-      // triggerCharacters: ['$', '.', '='], // 触发提示的字符，可以写多个
     });
+
+
+
+
+
+
     editor.focus();
   };
 
   return (
     <div className="App">
-        <MonacoEditor
-          width="100%"
-          height="400px"
-          language="plaintext"
-          options={options}
-          editorDidMount={editorDidMountHandle}
-        />
+      <MonacoEditor
+        theme="logTheme"
+        width="100%"
+        height="400px"
+        language="plaintext"
+        options={options}
+        editorDidMount={editorDidMountHandle}
+      />
     </div>
   );
 }
